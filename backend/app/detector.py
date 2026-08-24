@@ -1,40 +1,47 @@
 import numpy as np
 from sklearn.ensemble import IsolationForest
 
-class LogAnomalyDetector:
+class LogDetector:
     def __init__(self):
-        # Initialize Isolation Forest model
-        self.model = IsolationForest(contamination=0.1, random_state=42)
-        
-    def _extract_features(self, logs: list) -> np.ndarray:
-        # Extract lightweight numerical features for scoring
-        features = []
-        severity_map = {"INFO": 1, "WARNING": 2, "ERROR": 3, "CRITICAL": 4, "FATAL": 5}
-        
-        for log in logs:
-            msg_len = len(log.get("message", ""))
-            sev_score = severity_map.get(str(log.get("severity", "")).upper(), 1)
-            is_sec_alert = 1 if log.get("event_type") == "SECURITY_ALERT" else 0
-            features.append([msg_len, sev_score, is_sec_alert])
-            
-        return np.array(features)
+        # Baseline training set [message_length, severity_weight]
+        X_train = np.array([
+            [15, 1], [30, 1], [25, 1], [45, 1], [10, 1]
+        ])
+        self.model = IsolationForest(contamination=0.2, random_state=42)
+        self.model.fit(X_train)
 
-    def predict(self, logs: list) -> list:
-        if not logs:
-            return logs
-            
-        features = self._extract_features(logs)
+    def analyze(self, log_dict):
+        sev_map = {"INFO": 1, "WARNING": 2, "CRITICAL": 3, "FATAL": 4}
+        sev_val = sev_map.get(log_dict.get("severity", "INFO"), 1)
+        msg_len = len(log_dict.get("message", ""))
         
-        # Fit & Predict (-1 is anomaly, 1 is normal)
-        self.model.fit(features)
-        predictions = self.model.predict(features)
-        scores = self.model.decision_function(features)
+        features = np.array([[msg_len, sev_val]])
+        pred = self.model.predict(features)[0]
+        score = self.model.decision_function(features)[0]
         
-        # Attach results back to log objects
-        for i, log in enumerate(logs):
-            log["is_anomaly"] = bool(predictions[i] == -1)
-            log["anomaly_score"] = float(scores[i])
-            
-        return logs
+        is_anomaly = (pred == -1) or (sev_val >= 3)
+        return {
+            "is_anomaly": bool(is_anomaly),
+            "anomaly_score": float(abs(score))
+        }
 
-detector = LogAnomalyDetector()
+    def explain(self, log):
+        message = log.message if hasattr(log, "message") else log.get("message", "")
+        if "SYN flood" in message or "brute force" in message or "CRITICAL" in message:
+            root_cause = "Distributed Denial of Service (DDoS) or TCP packet flooding vector identified."
+            recommended_action = "Apply edge IP rate-limiting and drop inbound packets from offending nodes."
+            risk_level = "CRITICAL"
+        elif "buffer overflow" in message or "memory write" in message:
+            root_cause = "Malicious payload injection attempting stack/heap memory corruption."
+            recommended_action = "Isolate process boundary, block source IP, and update web application firewall rules."
+            risk_level = "FATAL"
+        else:
+            root_cause = "Statistical feature anomaly identified by Isolation Forest model."
+            recommended_action = "Audit network interface logs and review current authorization token TTLs."
+            risk_level = "WARNING"
+            
+        return {
+            "root_cause": root_cause,
+            "recommended_action": recommended_action,
+            "risk_level": risk_level
+        }
