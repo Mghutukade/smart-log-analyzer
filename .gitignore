@@ -5,3 +5,4 @@ app/venv/
 backend/app/venv/
 node_modules/
 .env
+.env 
