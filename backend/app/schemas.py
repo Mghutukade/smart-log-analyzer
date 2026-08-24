@@ -1,21 +1,17 @@
-from pydantic import BaseModel
-from datetime import datetime
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
+from datetime import datetime
 
-class LogBase(BaseModel):
-    timestamp: datetime
-    event_type: str
-    severity: str
+class LogCreate(BaseModel):
+    timestamp: Optional[datetime] = None
     source: str
+    severity: str
+    event_type: str
     message: str
 
-class LogCreate(LogBase):
-    pass
-
-class LogResponse(LogBase):
+class LogResponse(LogCreate):
     id: int
     is_anomaly: bool
     anomaly_score: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

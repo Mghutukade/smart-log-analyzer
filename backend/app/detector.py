@@ -3,45 +3,33 @@ from sklearn.ensemble import IsolationForest
 
 class LogDetector:
     def __init__(self):
-        # Baseline training set [message_length, severity_weight]
-        X_train = np.array([
-            [15, 1], [30, 1], [25, 1], [45, 1], [10, 1]
-        ])
+        # Initialize Isolation Forest model
         self.model = IsolationForest(contamination=0.2, random_state=42)
-        self.model.fit(X_train)
+        
+        # Pre-fit model on synthetic baseline telemetry features: [message_length, severity_weight]
+        baseline_data = np.array([
+            [25, 1], [30, 1], [22, 1], [35, 2], [28, 1],
+            [120, 3], [150, 3], [200, 3], [180, 3] # Outliers
+        ])
+        self.model.fit(baseline_data)
 
-    def analyze(self, log_dict):
-        sev_map = {"INFO": 1, "WARNING": 2, "CRITICAL": 3, "FATAL": 4}
-        sev_val = sev_map.get(log_dict.get("severity", "INFO"), 1)
-        msg_len = len(log_dict.get("message", ""))
+    def predict(self, message: str, severity: str) -> tuple[bool, float]:
+        severity_map = {"INFO": 1, "WARNING": 2, "CRITICAL": 3}
+        weight = severity_map.get(severity, 1)
+        features = np.array([[len(message), weight]])
         
-        features = np.array([[msg_len, sev_val]])
-        pred = self.model.predict(features)[0]
-        score = self.model.decision_function(features)[0]
+        # Isolation Forest outputs -1 for anomalies, 1 for normal
+        prediction = self.model.predict(features)[0]
+        score = float(self.model.score_samples(features)[0])
         
-        is_anomaly = (pred == -1) or (sev_val >= 3)
+        is_anomaly = bool(prediction == -1)
+        return is_anomaly, score
+
+    def explain(self, log_entry) -> dict:
         return {
-            "is_anomaly": bool(is_anomaly),
-            "anomaly_score": float(abs(score))
+            "root_cause": f"Payload length ({len(log_entry.message)} chars) combined with severity '{log_entry.severity}' produced an anomalous vector score of {log_entry.anomaly_score:.4f}.",
+            "next_steps": f"Investigate source IP {log_entry.source} for rate-limit violations and inspect perimeter firewall logs."
         }
 
-    def explain(self, log):
-        message = log.message if hasattr(log, "message") else log.get("message", "")
-        if "SYN flood" in message or "brute force" in message or "CRITICAL" in message:
-            root_cause = "Distributed Denial of Service (DDoS) or TCP packet flooding vector identified."
-            recommended_action = "Apply edge IP rate-limiting and drop inbound packets from offending nodes."
-            risk_level = "CRITICAL"
-        elif "buffer overflow" in message or "memory write" in message:
-            root_cause = "Malicious payload injection attempting stack/heap memory corruption."
-            recommended_action = "Isolate process boundary, block source IP, and update web application firewall rules."
-            risk_level = "FATAL"
-        else:
-            root_cause = "Statistical feature anomaly identified by Isolation Forest model."
-            recommended_action = "Audit network interface logs and review current authorization token TTLs."
-            risk_level = "WARNING"
-            
-        return {
-            "root_cause": root_cause,
-            "recommended_action": recommended_action,
-            "risk_level": risk_level
-        }
+# Instantiate the singleton instance expected by routes/logs.py
+detector = LogDetector()
