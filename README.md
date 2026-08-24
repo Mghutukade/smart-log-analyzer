@@ -1,31 +1,29 @@
 # 🛡️ Smart Log Analyzer & Anomaly Detector
 
-A full-stack cybersecurity application that ingests live network logs, detects anomalies using unsupervised machine learning, and generates plain-English AI root-cause explanations with actionable countermeasures.
+A full-stack network telemetry monitor that ingests system logs, detects security anomalies using unsupervised Machine Learning, and provides plain-English AI diagnostics.
 
 ---
 
-## 🚀 Key Features
+## 📌 Project Overview
 
-* **Real-Time Data Ingestion:** Streams network logs with built-in Pydantic validation and timestamp auto-filling.
-* **Algorithmic Anomaly Detection:** Utilizes `IsolationForest` (scikit-learn) to score packet anomalies independently of AI rules.
-* **AI Diagnostic Engine:** Generates plain-English threat breakdowns, root-cause analyses, and mitigation steps.
-* **Persistent Storage:** Fully backed by PostgreSQL (`smart_logs` schema) via SQLAlchemy ORM.
-* **Cyber SOC Dashboard:** High-tech React + Tailwind CSS frontend featuring dynamic threat counters and detailed diagnostic views.
+Systems generate massive volumes of log data, making manual inspection slow and error-prone. This application automates log monitoring through a clear three-step pipeline:
 
----
-
-## 🛠️ Tech Stack
-
-* **Frontend:** React.js, Tailwind CSS, Lucide Icons
-* **Backend:** FastAPI, Python 3.10, Pydantic
-* **Database:** PostgreSQL, SQLAlchemy ORM
-* **Machine Learning & AI:** scikit-learn (`IsolationForest`), Custom AI Explanation Engine
+1. **Stream & Store**: Ingests continuous log entries (timestamp, severity, source, event type, message) and saves them to a PostgreSQL database.
+2. **Algorithmic Detection**: Evaluates incoming logs using a non-AI Machine Learning model (`IsolationForest`) to mathematically flag anomalies and calculate threat scores.
+3. **AI Threat Diagnosis**: Takes flagged anomalies and generates plain-English explanations, probable root causes, and recommended next steps.
 
 ---
 
-## 📦 Quick Setup Guide
+## ⚙️ How It Works (Step-by-Step)
 
-### 1. Database Setup
-Create a PostgreSQL database named `smart_logs` in pgAdmin or psql:
-```sql
-CREATE DATABASE smart_logs;
+```text
+[ Incoming Log Packet ] 
+          │
+          ▼
+ [ FastAPI & Pydantic ] ─── (Validates schema & auto-populates missing fields)
+          │
+          ├───> [ PostgreSQL Database ] ─── (Persists raw telemetry & scores)
+          │
+          ├───> [ Isolation Forest ML ] ─── (Calculates anomaly score & flag)
+          │
+          └─> [ AI Explanation Engine ] ── (Generates root cause & mitigation steps)
